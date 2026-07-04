@@ -2,17 +2,17 @@ version: '3.8'
 
 services:
   postgres:
-    image: postgres:16-16-alpine
+    image: postgres:18-alpine
     container_name: paw_postgres
     restart: always
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: root
-      POSTGRES_DB: paw_renovations
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
     ports:
-      -"5432":"5432"
+      - "5433:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql
     
-  volumes:
-    pgdata:
+volumes:
+  pgdata:
