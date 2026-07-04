@@ -12,7 +12,7 @@ type User struct {
 	Surname      string    `gorm:"type:varchar(100)"`
 	Email        string    `gorm:"type:varchar(100);uniqueIndex;not null"`
 	Phone        string    `gorm:"type:varchar(100)"`
-	PasswordHash string    `gorm:"type:varchar(150);not null"`
+	PasswordHash string    `gorm:"type:varchar(150);not null" json:"-"`
 	Role         string    `gorm:"type:varchar(20);not null;default:'client'"`
 	Address      string    `gorm:"type:varchar(100)"`
 	City         string    `gorm:"type:varchar(100)"`
@@ -52,7 +52,7 @@ type LaborTask struct {
 	Amount     float64 `gorm:"not null"`
 	Date       time.Time
 	Note       string     `gorm:"type:text"`
-	Renovation Renovation `gorm:"foreignKey:RenovationID"`
+	Renovation Renovation `gorm:"foreignKey:RenovationID" json:"-"`
 }
 
 type Transaction struct {
@@ -63,7 +63,7 @@ type Transaction struct {
 	Date         time.Time  `gorm:"not null"`
 	Note         string     `gorm:"type:text"`
 	DocumentURL  *string    `gorm:"type:varchar(255)"`
-	Renovation   Renovation `gorm:"foreignKey:RenovationID"`
+	Renovation   Renovation `gorm:"foreignKey:RenovationID" json:"-"`
 }
 
 type ProgressUpdate struct {
@@ -73,8 +73,8 @@ type ProgressUpdate struct {
 	Note         string         `gorm:"type:text"`
 	Date         time.Time      `gorm:"not null"`
 	Photos       datatypes.JSON `gorm:"type:jsonb"` //["url1", "url2"]
-	Renovation   Renovation     `gorm:"foreignKey:RenovationID"`
-	LaborTask    *LaborTask     `gorm:"foreignKey:LaborTaskID"`
+	Renovation   Renovation     `gorm:"foreignKey:RenovationID" json:"-"`
+	LaborTask    *LaborTask     `gorm:"foreignKey:LaborTaskID" json:"-"`
 }
 
 type Message struct {
@@ -87,7 +87,7 @@ type Message struct {
 	IsRead  bool   `gorm:"default:false"`
 
 	CreatedAt  time.Time
-	Renovation Renovation `gorm:"foreignKey:RenovationID"`
-	Sender     User       `gorm:"foreignKey:SenderID"`
-	Receiver   User       `gorm:"foreignKey:ReceiverID"`
+	Renovation Renovation `gorm:"foreignKey:RenovationID" json:"-"`
+	Sender     User       `gorm:"foreignKey:SenderID" json:"-"`
+	Receiver   User       `gorm:"foreignKey:ReceiverID" json:"-"`
 }

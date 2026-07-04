@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"time"
 
 	"renovation-api/internal/db"
 	"renovation-api/internal/models"
@@ -10,7 +11,7 @@ import (
 	"github.com/google/uuid"
 )
 
-//-------Renovation-------
+//*------Renovation-------POST
 type CreateRenovationInput struct{
 	ClientID string`json:"client_id" binding:"required"`
 	Name string`json:"name" binding:"required"`
@@ -57,7 +58,7 @@ func CreateRenovation(c *gin.Context){
 	})
 }
 
-//----------TaskLabor---------------------
+//*----------TaskLabor---------------------POST
 type AddLaborTaskInput struct{
 	Label string `json:"label" binding:"required"`
 	UnitPrice float64 `json:"unit_price" binding:"required"`
@@ -113,5 +114,84 @@ func AddLaborTask(c *gin.Context){
 		"task_id": newTask.ID,
 		"status": newTask.Status,
 		"amount": newTask.Amount,
+	})
+}
+
+//*---RenovationDetails-----GET
+func GetRenovationDetails(c *gin.Context){
+	tokenUserID, _:=c.Get("userID")
+	tokenRole,_:=c.Get("role")
+
+	renovationIDParam := c.Param("id")
+	renovationUUID, err := uuid.Parse(renovationIDParam)
+	if err != nil{
+		c.JSON(http.StatusBadRequest, gin.H{"error":"Nieprawidłowy identyfikator"})
+		return
+	}
+
+	var renovation models.Renovation
+	if err := db.DB.Preload("Client").Preload("LaborTasks").Where("id = ?", renovationUUID).First(&renovation).Error; err !=nil{
+		c.JSON(http.StatusNotFound, gin.H{"error":"Nie znaleziono projektu o tym ID","id":renovationUUID})
+		return
+	}
+
+	if tokenRole == "client" && renovation.ClientID != tokenUserID{
+		c.JSON(http.StatusForbidden, gin.H{"error":"Brak uprawnień"})
+		return
+	}
+	c.JSON(http.StatusOK, renovation)
+}
+//*---AddTransaction----POST
+type AddTransactionInput struct{
+	Type string `json:"type" binding:"required"`
+	Amount float64 `json:"amount" binding:"required"`
+	Note string `json:"note"`
+}
+func AddTransaction(c *gin.Context){
+	role, _:= c.Get("role")
+	if role !="admin"{
+		c.JSON(http.StatusForbidden, gin.H{"error":"Brak uprawnień"})
+		return 
+	}
+
+	renovationIDParam :=c.Param("id")
+	renovationUUID, err:=uuid.Parse(renovationIDParam)
+	if err != nil{
+		c.JSON(http.StatusBadRequest, gin.H{"error":"Nieprawidłowy format ID"})
+		return
+	}
+
+	var input AddTransactionInput
+	if err :=c.ShouldBindJSON(&input);err!=nil{
+		c.JSON(http.StatusBadRequest, gin.H{"error":"Brak wymaganych danych"})
+		return
+	}
+
+	validTypes := map[string]bool{"material_deposit": true, "material_expens":true, "labour_payment":true}
+	if !validTypes[input.Type]{
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Nieprawidłowy typ transakcji"})
+		return
+	}
+
+	var count int64
+	db.DB.Model(&models.Renovation{}).Where("id = ?", renovationUUID).Count(&count)
+	if count == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Remont nie istnieje"})
+		return
+	}
+	newTransaction:=models.Transaction{
+		RenovationID: renovationUUID,
+		Type: input.Type,
+		Amount: input.Amount,
+		Note: input.Note,
+		Date: time.Now(),
+	}
+	if err:=db.DB.Create(&newTransaction).Error; err!=nil{
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Wystąpił błąd przy rejestracji transakcji"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"message":        "Transakcja pomyślnie zarejestrowana",
+		"transaction_id": newTransaction.ID,
 	})
 }
