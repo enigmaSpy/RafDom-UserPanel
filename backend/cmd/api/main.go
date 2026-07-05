@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
-	
+	"os"
 
 	"renovation-api/internal/db"
 	"renovation-api/internal/handlers"
@@ -17,7 +17,12 @@ func main() {
 	db.Connect()
 	seed.SeedAdmin(db.DB)
 
+	if err := os.MkdirAll("uploads", os.ModePerm); err!=nil{
+		log.Fatal("Nie udało się utworzyć folderu uploads: ", err)
+	}
+
 	router := gin.Default()
+	router.Static("/uploads", "./uploads")
 	//*---Default-Router
 	api := router.Group("/api")
 	{
@@ -44,6 +49,7 @@ func main() {
 		adminOnly.POST("/renovations", handlers.CreateRenovation)
 		adminOnly.POST("/renovations/:id/tasks", handlers.AddLaborTask)
 		adminOnly.POST("/renovations/:id/transactions", handlers.AddTransaction)
+		adminOnly.POST("/upload", handlers.UploadFile)
 	
 	}
 	//*----Authenticated-Router
