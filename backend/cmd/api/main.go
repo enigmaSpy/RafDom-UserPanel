@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	
 
 	"renovation-api/internal/db"
 	"renovation-api/internal/handlers"
@@ -43,12 +44,14 @@ func main() {
 		adminOnly.POST("/renovations", handlers.CreateRenovation)
 		adminOnly.POST("/renovations/:id/tasks", handlers.AddLaborTask)
 		adminOnly.POST("/renovations/:id/transactions", handlers.AddTransaction)
+	
 	}
 	//*----Authenticated-Router
 	authenticated := api.Group("/")
 	authenticated.Use(middleware.AuthRequired())
 	{
 		authenticated.GET("/renovations/:id", handlers.GetRenovationDetails)
+		authenticated.GET("/renovations/:id/summary", handlers.GetRenovationSummary)
 	}
 	//*----Server
 	fmt.Println("Serwer działa na porcie 8081")

@@ -195,3 +195,71 @@ func AddTransaction(c *gin.Context){
 		"transaction_id": newTransaction.ID,
 	})
 }
+//*Agregation--GET
+type RenovationSummary struct{
+	RenovationID uuid.UUID `json:"renovation_id"`
+	Status string `json:"status"`
+	TotalLaborCost float64 `json:"total_labor_cost"`
+	LaborPaid float64 `json:"labor_paid"`
+	LaborBalance float64 `json:"labor_balance"`
+	MaterialDeposits float64 `json:"material_deposit"`
+	MaterialExpenses float64 `json:"material_expenses"`
+	MaterialBalance float64 `json:"material_balance"`
+}
+
+func GetRenovationSummary(c *gin.Context){
+	tokenUserID, _ := c.Get("userID")
+	tokenRole, _ := c.Get("role")
+
+	renovationIDParam := c.Param("id")
+	renovationUUID, err:=uuid.Parse(renovationIDParam)
+	if err!=nil{
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Nieprawidłowe ID remontu"})
+		return
+	}
+	var renovation models.Renovation
+	if err:= db.DB.Where("id = ?", renovationUUID).First(&renovation).Error; err !=nil{
+		c.JSON(http.StatusNotFound, gin.H{"error": "Projekt nie istnieje"})
+		return
+	}
+
+	if tokenRole == "client" && renovation.ClientID != tokenUserID{
+		c.JSON(http.StatusForbidden, gin.H{"error": "Brak dostępu"})
+		return
+	}
+	var summary RenovationSummary
+	summary.RenovationID = renovation.ID
+	summary.Status = renovation.Status
+	
+	//?LaborCostAggregation
+	db.DB.Model(&models.LaborTask{}). 
+			Select("COALESCE(SUM(amount),0)").
+			Where("renovation_id = ?", renovationUUID).
+			Scan(&summary.TotalLaborCost) 
+
+	//?LaborPayment
+	db.DB.Model(&models.Transaction{}). 
+			Select("COALESCE(SUM(amount),0)"). 
+			Where("renovation_id = ? AND type = ?", renovationUUID, "labor_payment"). 
+			Scan(&summary.LaborPaid)
+
+	//?MaterialDeposit
+	db.DB.Model(&models.Transaction{}). 
+			Select("COALESCE(SUM(amount),0)"). 
+			Where("renovation_id = ? AND type = ?", renovationUUID, "material_deposit"). 
+			Scan(&summary.MaterialDeposits)
+
+	//?MaterialExpense
+	db.DB.Model(&models.Transaction{}). 
+			Select("COALESCE(SUM(amount),0)"). 
+			Where("renovation_id = ? AND type = ?", renovationUUID, "material_expense").
+			Scan(&summary.MaterialExpenses)
+
+	//?balance
+	summary.LaborBalance = summary.TotalLaborCost - summary.LaborPaid
+	summary.MaterialBalance = summary.MaterialDeposits - summary.MaterialExpenses
+
+	c.JSON(http.StatusOK, summary)
+}
+
+
