@@ -50,7 +50,7 @@ func main() {
 		adminOnly.POST("/renovations/:id/tasks", handlers.AddLaborTask)
 		adminOnly.POST("/renovations/:id/transactions", handlers.AddTransaction)
 		adminOnly.POST("/upload", handlers.UploadFile)
-	
+		adminOnly.POST("/renovations/:id/progress", handlers.AddProgressUpdate)
 	}
 	//*----Authenticated-Router
 	authenticated := api.Group("/")

@@ -262,4 +262,53 @@ func GetRenovationSummary(c *gin.Context){
 	c.JSON(http.StatusOK, summary)
 }
 
+//*---ProgressUpdate
+type AddProgressUpdateInput struct{
+	Title string `json:"title" binding:"required"`
+	Description string `json:"description"`
+	Photos []string `json:"photos"`
+	LaborTaskID string `json:"labor_task_id"`
+}
+func AddProgressUpdate(c *gin.Context){
+	role,_ :=c.Get("role")
+	if role != "admin"{
+		c.JSON(http.StatusForbidden, gin.H{"error":"Brak uprawnień"})
+		return
+	}
 
+	renovationIDParam := c.Param("id")
+	renovationUUID, err := uuid.Parse(renovationIDParam)
+	if err !=nil{
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Nieprawidłowe ID remontu"})
+		return
+	}
+
+	var input AddProgressUpdateInput
+	if err:=c.ShouldBindJSON(&input); err!=nil{
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Brak wymaganych danych wejściowych"})
+		return
+	}
+	var labourTaskUUID *uuid.UUID
+	if input.LaborTaskID !=""{
+		parsed, err:= uuid.Parse(input.LaborTaskID)
+		if err!=nil{
+			labourTaskUUID = &parsed
+		}
+	}
+	newProgress :=models.ProgressUpdate{
+		RenovationID: renovationUUID,
+		LaborTaskID: labourTaskUUID,
+		Title: input.Title,
+		Description: input.Description,
+		Photos: input.Photos,
+		Date: time.Now(),
+	}
+	if err:=db.DB.Create(&newProgress).Error; err!=nil{
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Nie udało się zapisać postępu prac"})
+		return
+	}
+	c.JSON(http.StatusCreated, gin.H{
+		"message":     "Dodano wpis w dzienniku prac",
+		"progress_id": newProgress.ID,
+	})
+}

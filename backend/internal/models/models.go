@@ -2,7 +2,6 @@ package models
 
 import (
 	"github.com/google/uuid"
-	"gorm.io/datatypes"
 	"time"
 )
 
@@ -67,14 +66,17 @@ type Transaction struct {
 }
 
 type ProgressUpdate struct {
-	ID           uuid.UUID      `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
-	RenovationID uuid.UUID      `gorm:"type:uuid;not null"`
-	LaborTaskID  *uuid.UUID     `gorm:"type:uuid"` //opcjonalny link do konkretnej usługi
-	Note         string         `gorm:"type:text"`
-	Date         time.Time      `gorm:"not null"`
-	Photos       datatypes.JSON `gorm:"type:jsonb"` //["url1", "url2"]
-	Renovation   Renovation     `gorm:"foreignKey:RenovationID" json:"-"`
-	LaborTask    *LaborTask     `gorm:"foreignKey:LaborTaskID" json:"-"`
+	ID           uuid.UUID  `gorm:"type:uuid;default:gen_random_uuid();primaryKey" json:"id"`
+	RenovationID uuid.UUID  `gorm:"type:uuid;not null" json:"renovation_id"`
+	LaborTaskID  *uuid.UUID `gorm:"type:uuid" json:"labor_task_id,omitempty"`
+	
+	Title       string    `gorm:"type:varchar(150);not null" json:"title"`
+	Description string    `gorm:"type:text" json:"description"`
+	
+	Photos      []string  `gorm:"type:jsonb;serializer:json" json:"photos"` 
+	Date        time.Time `json:"date"`
+	Renovation  Renovation `gorm:"foreignKey:RenovationID" json:"-"`
+	LaborTask   *LaborTask `gorm:"foreignKey:LaborTaskID" json:"-"`
 }
 
 type Message struct {
