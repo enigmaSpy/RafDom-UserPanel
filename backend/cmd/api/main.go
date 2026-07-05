@@ -27,6 +27,7 @@ func main() {
 	api := router.Group("/api")
 	{
 		api.POST("/login", handlers.Login)
+		api.GET("/ws/chat", handlers.ConnectChatWS)
 		api.GET("/health", func(c *gin.Context) {
 			c.String(200, "El Psy Kongroo")
 		})
