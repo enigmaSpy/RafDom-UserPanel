@@ -22,6 +22,7 @@ func main() {
 	}
 
 	router := gin.Default()
+	router.Use(middleware.APILogger())
 	router.Static("/uploads", "./uploads")
 	//*---Default-Router
 	api := router.Group("/api")
@@ -62,9 +63,10 @@ func main() {
 		authenticated.GET("/renovations/:id/messages", handlers.GetChatHistory)
 	}
 	//*----Server
-	fmt.Println("Serwer działa na porcie 8081")
-	if err := router.Run(":8081"); err != nil {
-		log.Fatal("Błąd serwera: ", err)
+	fmt.Println("Serwer HTTPS działa na porcie 8081")
+	if err:=router.RunTLS(":8081", "cert.pem", "key.pem"); err !=nil{
+		log.Fatal("Błąd serwera HTTPS: ", err)
 	}
+	
 
 }
