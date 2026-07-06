@@ -59,6 +59,7 @@ func main() {
 	{
 		authenticated.GET("/renovations/:id", handlers.GetRenovationDetails)
 		authenticated.GET("/renovations/:id/summary", handlers.GetRenovationSummary)
+		authenticated.GET("/renovations/:id/messages", handlers.GetChatHistory)
 	}
 	//*----Server
 	fmt.Println("Serwer działa na porcie 8081")
