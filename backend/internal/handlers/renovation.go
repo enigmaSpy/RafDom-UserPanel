@@ -18,7 +18,16 @@ type CreateRenovationInput struct {
 	Name        string `json:"name" binding:"required"`
 	Description string `json:"description"`
 }
-
+// CreateRenovation godoc
+// @Summary Tworzy nowy projekt remontowy
+// @Description Tworzy nowy remont i przypisuje go do istniejącego klienta. Wymaga roli admin.
+// @Tags remonty
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param input body CreateRenovationInput true "Dane nowego remontu"
+// @Success 201 {object} models.Renovation
+// @Router /api/admin/renovations [post]
 func CreateRenovation(c *gin.Context) {
 	role, _ := c.Get("role")
 	if role != "admin" {
@@ -67,7 +76,17 @@ type AddLaborTaskInput struct {
 	Quantity  float64 `json:"quantity" binding:"required"`
 	Note      string  `json:"note"`
 }
-
+// AddLaborTask godoc
+// @Summary Dodaje usługę roboczą do kosztorysu
+// @Description Dodaje pozycję roboczą (praca) do istniejącego projektu remontowego. Wymaga roli admin.
+// @Tags remonty
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "UUID Remontu"
+// @Param input body AddLaborTaskInput true "Dane usługi roboczej"
+// @Success 201 {object} models.LaborTask
+// @Router /api/admin/renovations/{id}/tasks [post]
 func AddLaborTask(c *gin.Context) {
 	role, _ := c.Get("role")
 	if role != "admin" {
@@ -116,7 +135,16 @@ func AddLaborTask(c *gin.Context) {
 	})
 }
 
-//*---RenovationDetails-----GET
+// GetRenovationDetails godoc
+// @Summary Szczegóły remontu
+// @Description Zwraca pełne dane remontu wraz z klientem i listą usług roboczych. Dostęp dla admina lub przypisanego klienta.
+// @Tags remonty
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "UUID Remontu"
+// @Success 200 {object} models.Renovation
+// @Router /api/renovations/{id} [get]
 func GetRenovationDetails(c *gin.Context) {
 	tokenUserID, _ := c.Get("userID")
 	tokenRole, _ := c.Get("role")
@@ -145,7 +173,17 @@ type AddTransactionInput struct {
 	Amount float64 `json:"amount" binding:"required"`
 	Note   string  `json:"note"`
 }
-
+// AddTransaction godoc
+// @Summary Rejestruje transakcję finansową
+// @Description Dodaje wpłatę/zakup materiałów lub płatność za pracę do projektu. Wymaga roli admin. Dozwolone typy: material_deposit, material_expense, labour_payment.
+// @Tags transakcje
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "UUID Remontu"
+// @Param input body AddTransactionInput true "Dane transakcji"
+// @Success 200 {object} models.Transaction
+// @Router /api/admin/renovations/{id}/transactions [post]
 func AddTransaction(c *gin.Context) {
 	role, _ := c.Get("role")
 	if role != "admin" {
@@ -204,7 +242,16 @@ type RenovationSummary struct {
 	MaterialExpenses float64   `json:"material_expenses"`
 	MaterialBalance  float64   `json:"material_balance"`
 }
-
+// GetRenovationSummary godoc
+// @Summary Zwraca podsumowanie finansowe remontu
+// @Description Agreguje koszty pracy, płatności, wpłaty na materiały i wydatki. Zwraca salda. Dostęp dla admina lub przypisanego klienta.
+// @Tags remonty
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "UUID Remontu"
+// @Success 200 {object} models.Renovation
+// @Router /api/renovations/{id}/summary [get]
 func GetRenovationSummary(c *gin.Context) {
 	tokenUserID, _ := c.Get("userID")
 	tokenRole, _ := c.Get("role")
@@ -265,7 +312,17 @@ type AddProgressUpdateInput struct {
 	Photos      []string `json:"photos"`
 	LaborTaskID string   `json:"labor_task_id"`
 }
-
+// AddProgressUpdate godoc
+// @Summary Dodaje wpis w dzienniku prac
+// @Description Rejestruje aktualizację postępu prac w projekcie. Opcjonalnie można powiązać z konkretnym zadaniem roboczym. Wymaga roli admin.
+// @Tags postęp prac
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "UUID Remontu"
+// @Param input body AddProgressUpdateInput true "Dane aktualizacji postępu"
+// @Success 201 {object} models.ProgressUpdate
+// @Router /api/admin/renovations/{id}/progress [post]
 func AddProgressUpdate(c *gin.Context) {
 	role, _ := c.Get("role")
 	if role != "admin" {

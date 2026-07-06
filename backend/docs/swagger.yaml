@@ -1,0 +1,373 @@
+basePath: /api
+definitions:
+  handlers.AddLaborTaskInput:
+    properties:
+      label:
+        type: string
+      note:
+        type: string
+      quantity:
+        type: number
+      unit:
+        type: string
+      unit_price:
+        type: number
+    required:
+    - label
+    - quantity
+    - unit
+    - unit_price
+    type: object
+  handlers.AddProgressUpdateInput:
+    properties:
+      description:
+        type: string
+      labor_task_id:
+        type: string
+      photos:
+        items:
+          type: string
+        type: array
+      title:
+        type: string
+    required:
+    - title
+    type: object
+  handlers.AddTransactionInput:
+    properties:
+      amount:
+        type: number
+      note:
+        type: string
+      type:
+        type: string
+    required:
+    - amount
+    - type
+    type: object
+  handlers.CreateRenovationInput:
+    properties:
+      client_id:
+        type: string
+      description:
+        type: string
+      name:
+        type: string
+    required:
+    - client_id
+    - name
+    type: object
+  models.LaborTask:
+    properties:
+      amount:
+        type: number
+      date:
+        type: string
+      id:
+        type: string
+      label:
+        type: string
+      note:
+        type: string
+      quantity:
+        type: number
+      renovationID:
+        type: string
+      status:
+        description: pending, in_progress, completed
+        type: string
+      unit:
+        type: string
+      unitPrice:
+        type: number
+    type: object
+  models.Message:
+    properties:
+      content:
+        type: string
+      createdAt:
+        type: string
+      id:
+        type: string
+      isRead:
+        type: boolean
+      receiverID:
+        type: string
+      renovationID:
+        type: string
+      senderID:
+        type: string
+    type: object
+  models.ProgressUpdate:
+    properties:
+      date:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      labor_task_id:
+        type: string
+      photos:
+        items:
+          type: string
+        type: array
+      renovation_id:
+        type: string
+      title:
+        type: string
+    type: object
+  models.Renovation:
+    properties:
+      client:
+        $ref: '#/definitions/models.User'
+      clientID:
+        type: string
+      createdAt:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      laborTasks:
+        items:
+          $ref: '#/definitions/models.LaborTask'
+        type: array
+      messages:
+        items:
+          $ref: '#/definitions/models.Message'
+        type: array
+      name:
+        type: string
+      progressUpdates:
+        items:
+          $ref: '#/definitions/models.ProgressUpdate'
+        type: array
+      status:
+        description: estimation, in_progress, completed
+        type: string
+      transactions:
+        items:
+          $ref: '#/definitions/models.Transaction'
+        type: array
+      updatedAt:
+        type: string
+    type: object
+  models.Transaction:
+    properties:
+      amount:
+        type: number
+      date:
+        type: string
+      documentURL:
+        type: string
+      id:
+        type: string
+      note:
+        type: string
+      renovationID:
+        type: string
+      type:
+        description: material_deposit, material_expense, labor_payment
+        type: string
+    type: object
+  models.User:
+    properties:
+      address:
+        type: string
+      city:
+        type: string
+      createdAt:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      messages:
+        items:
+          $ref: '#/definitions/models.Message'
+        type: array
+      name:
+        type: string
+      phone:
+        type: string
+      postalCode:
+        type: string
+      role:
+        type: string
+      surname:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+host: localhost:8081
+info:
+  contact: {}
+  description: System zarządzania projektami remontowymi
+  title: Renovation API
+  version: "1.0"
+paths:
+  /api/admin/renovations:
+    post:
+      consumes:
+      - application/json
+      description: Tworzy nowy remont i przypisuje go do istniejącego klienta. Wymaga
+        roli admin.
+      parameters:
+      - description: Dane nowego remontu
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.CreateRenovationInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Renovation'
+      security:
+      - BearerAuth: []
+      summary: Tworzy nowy projekt remontowy
+      tags:
+      - remonty
+  /api/admin/renovations/{id}/progress:
+    post:
+      consumes:
+      - application/json
+      description: Rejestruje aktualizację postępu prac w projekcie. Opcjonalnie można
+        powiązać z konkretnym zadaniem roboczym. Wymaga roli admin.
+      parameters:
+      - description: UUID Remontu
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Dane aktualizacji postępu
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.AddProgressUpdateInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.ProgressUpdate'
+      security:
+      - BearerAuth: []
+      summary: Dodaje wpis w dzienniku prac
+      tags:
+      - postęp prac
+  /api/admin/renovations/{id}/tasks:
+    post:
+      consumes:
+      - application/json
+      description: Dodaje pozycję roboczą (praca) do istniejącego projektu remontowego.
+        Wymaga roli admin.
+      parameters:
+      - description: UUID Remontu
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Dane usługi roboczej
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.AddLaborTaskInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.LaborTask'
+      security:
+      - BearerAuth: []
+      summary: Dodaje usługę roboczą do kosztorysu
+      tags:
+      - remonty
+  /api/admin/renovations/{id}/transactions:
+    post:
+      consumes:
+      - application/json
+      description: 'Dodaje wpłatę/zakup materiałów lub płatność za pracę do projektu.
+        Wymaga roli admin. Dozwolone typy: material_deposit, material_expense, labour_payment.'
+      parameters:
+      - description: UUID Remontu
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Dane transakcji
+        in: body
+        name: input
+        required: true
+        schema:
+          $ref: '#/definitions/handlers.AddTransactionInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Transaction'
+      security:
+      - BearerAuth: []
+      summary: Rejestruje transakcję finansową
+      tags:
+      - transakcje
+  /api/renovations/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Zwraca pełne dane remontu wraz z klientem i listą usług roboczych.
+        Dostęp dla admina lub przypisanego klienta.
+      parameters:
+      - description: UUID Remontu
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Renovation'
+      security:
+      - BearerAuth: []
+      summary: Szczegóły remontu
+      tags:
+      - remonty
+  /api/renovations/{id}/summary:
+    get:
+      consumes:
+      - application/json
+      description: Agreguje koszty pracy, płatności, wpłaty na materiały i wydatki.
+        Zwraca salda. Dostęp dla admina lub przypisanego klienta.
+      parameters:
+      - description: UUID Remontu
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Renovation'
+      security:
+      - BearerAuth: []
+      summary: Zwraca podsumowanie finansowe remontu
+      tags:
+      - remonty
+swagger: "2.0"

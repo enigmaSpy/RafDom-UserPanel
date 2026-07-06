@@ -11,9 +11,22 @@ import (
 	"renovation-api/internal/seed"
 
 	"github.com/gin-gonic/gin"
-)
 
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+	_ "renovation-api/docs"
+)
+//@title Renovation API
+//@version 1.0
+//@description System zarządzania projektami remontowymi 
+//@host localhost:8081
+//@BasePath /api
+//@securityDefinition.apikey BearerAuth
+//@in header
+//@name Authorization
 func main() {
+
+
 	db.Connect()
 	seed.SeedAdmin(db.DB)
 
@@ -24,6 +37,7 @@ func main() {
 	router := gin.Default()
 	router.Use(middleware.APILogger())
 	router.Static("/uploads", "./uploads")
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	//*---Default-Router
 	api := router.Group("/api")
 	{
