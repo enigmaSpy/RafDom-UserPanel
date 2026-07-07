@@ -61,12 +61,20 @@ func main() {
 				"twoja_rola": role,
 			})
 		})
-		adminOnly.POST("/clients", handlers.CreateClient)
+		adminOnly.POST("/client/create", handlers.CreateClient)
+		adminOnly.GET("/client/list", handlers.GetListClient)
+
 		adminOnly.POST("/renovations", handlers.CreateRenovation)
 		adminOnly.POST("/renovations/:id/tasks", handlers.AddLaborTask)
 		adminOnly.POST("/renovations/:id/transactions", handlers.AddTransaction)
-		adminOnly.POST("/upload", handlers.UploadFile)
 		adminOnly.POST("/renovations/:id/progress", handlers.AddProgressUpdate)
+		adminOnly.POST("/renovations/:id/update", handlers.UpdateRenovation)
+		adminOnly.PUT("/renovations/:id", handlers.UpdateRenovation)
+		adminOnly.DELETE("/renovations/:id", handlers.DeleteRenovation)
+
+		adminOnly.PUT("/tasks/:id", handlers.UpdateLoborTask)
+		adminOnly.DELETE("/tasks/:id", handlers.DeleteLaborTask)
+		adminOnly.POST("/upload", handlers.UploadFile)
 	}
 	//*----Authenticated-Router
 	authenticated := api.Group("/")
@@ -75,6 +83,10 @@ func main() {
 		authenticated.GET("/renovations/:id", handlers.GetRenovationDetails)
 		authenticated.GET("/renovations/:id/summary", handlers.GetRenovationSummary)
 		authenticated.GET("/renovations/:id/messages", handlers.GetChatHistory)
+		authenticated.GET("/renovations/list", handlers.GetListRenovation)
+
+		authenticated.GET("/client/:id", handlers.GetClient)
+		authenticated.POST("/client/:id/update", handlers.UpdateClient)
 	}
 	//*----Server
 	fmt.Println("Serwer HTTPS działa na porcie 8081")
