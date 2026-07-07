@@ -45,7 +45,7 @@ type LaborTask struct {
 	Status       string    `gorm:"type:varchar(20);default:'pending'"` //pending, in_progress, completed
 
 	UnitPrice float64 `gorm:"not null"`
-	Unit      string  `gorm:"type:varchar(20);not nul"`
+	Unit      string  `gorm:"type:varchar(20);not null"`
 	Quantity  float64 `gorm:"not null"`
 
 	Amount     float64 `gorm:"not null"`
