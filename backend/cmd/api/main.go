@@ -4,21 +4,25 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"renovation-api/internal/db"
 	"renovation-api/internal/handlers"
 	"renovation-api/internal/middleware"
 	"renovation-api/internal/seed"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+
+	_ "renovation-api/docs"
 
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
-	_ "renovation-api/docs"
 )
+
 //@title Renovation API
 //@version 1.0
-//@description System zarządzania projektami remontowymi 
+//@description System zarządzania projektami remontowymi
 //@host localhost:8081
 //@BasePath /api
 //@securityDefinition.apikey BearerAuth
@@ -35,6 +39,14 @@ func main() {
 	}
 
 	router := gin.Default()
+	router.Use(cors.New(cors.Config{
+		AllowOrigins:     []string{"http://localhost:5173"}, 
+		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
 	router.Use(middleware.APILogger())
 	router.Static("/uploads", "./uploads")
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
