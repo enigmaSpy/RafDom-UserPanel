@@ -356,7 +356,7 @@ func GetRenovationSummary(c *gin.Context) {
 	c.JSON(http.StatusOK, summary)
 }
 
-//*---AddTransaction----POST
+//*---Transaction----
 type AddTransactionInput struct {
 	Type   string  `json:"type" binding:"required"`
 	Amount float64 `json:"amount" binding:"required"`
@@ -419,7 +419,52 @@ func AddTransaction(c *gin.Context) {
 		"transaction_id": newTransaction.ID,
 	})
 }
-
+type UpdateTransactionInput struct{
+	Type string `json:"type"`
+	Amount *float64 `json:"amount"`
+	Note string `json:"note"`
+}
+func GetTransactionsList(c *gin.Context){
+	renovationID, ok:= utils.ParseUUIDParam(c, "id")
+	if !ok{
+		return
+	}
+	var transactions []models.Transaction
+	if err := db.DB.Where("renovation_id = ?", renovationID).Order("date desc").Find(&transactions).Error; err !=nil{
+		utils.RespondWithError(c, http.StatusInternalServerError, "Błąd pobierania transakcji")
+		return
+	}
+	c.JSON(http.StatusOK, transactions)
+}
+func UpdateTransaction(c *gin.Context){
+	transactionID, ok := utils.ParseUUIDParam(c, "id")
+	if !ok{
+		return
+	}
+	var input UpdateTransactionInput
+	if err := c.ShouldBindJSON(&input);err!=nil{
+		utils.RespondWithError(c, http.StatusBadRequest, "Nieprawidłowe formatowanie JSON")
+		return
+	}
+	var transaction models.Transaction
+	if err:= db.DB.First(&transaction, "id = ?", transactionID).Error; err !=nil{
+		utils.RespondWithError(c, http.StatusNotFound, "Transakcja nie istnieje")
+		return
+	}
+	db.DB.Model(&transaction).Updates(input)
+	c.JSON(http.StatusOK, gin.H{"message": "Zaktualizowano transakcję", "data": transaction})
+}
+func DeleteTransaction(c *gin.Context){
+	transactionID, ok := utils.ParseUUIDParam(c,"id")
+	if !ok{
+		return 
+	}
+	if err := db.DB.Unscoped().Delete(&models.Transaction{}, "id = ?", transactionID).Error; err != nil {
+		utils.RespondWithError(c, http.StatusInternalServerError, "Nie udało się anulować transakcji")
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Transakcja została trwale usunięta"})
+}
 //*---ProgressUpdate
 type AddProgressUpdateInput struct {
 	Title       string   `json:"title" binding:"required"`
@@ -502,4 +547,51 @@ func AddProgressUpdate(c *gin.Context) {
 		"progress_id": newProgress.ID,
 	})
 }
+type UpdateProgressInput struct{
+	Title       string   `json:"title"`
+	Description string   `json:"description"`
+	Photos      []string `json:"photos"`
+}
+func GetProgressUpdates(c *gin.Context){
+	renovationID, ok := utils.ParseUUIDParam(c, "id")
+	if !ok{
+		return
+	}
+	var updates []models.ProgressUpdate
+	if err := db.DB.Where("id_renovation = ?", renovationID).Order("date desc").Find(&updates).Error; err!=nil{
+		utils.RespondWithError(c, http.StatusInternalServerError, "Błąd pobierania dziennika prac")
+		return
+	}
+	c.JSON(http.StatusOK, updates)
+}
+func UpdateProgressUpdate(c *gin.Context){
+	progressID, ok := utils.ParseUUIDParam(c, "id")
+	if !ok{
+		return
+	}
+	
+	var updateInput UpdateProgressInput
+	if err := c.ShouldBindJSON(&updateInput); err !=nil{
+		utils.RespondWithError(c, http.StatusBadRequest, "Nieprawidłowe formatowanie JSON")
+		return
+	}
+	var progress models.ProgressUpdate
+	if err := db.DB.First(&progress, "id = ?", progressID).Error; err != nil{
+		utils.RespondWithError(c, http.StatusNotFound, "Wpis nie istnieje")
+		return
+	}
+	db.DB.Model(&progress).Updates(&updateInput)
+	c.JSON(http.StatusOK, gin.H{"message": "Zaktualizowany wpis", "data": progress})
+}
 
+func DeleteProgressUpdate(c *gin.Context){
+	progressID, ok := utils.ParseUUIDParam(c, "id")
+	if !ok{
+		return 
+	}
+	if err := db.DB.Unscoped().Delete(&models.ProgressUpdate{}, "id = ?", progressID).Error; err !=nil{
+		utils.RespondWithError(c, http.StatusInternalServerError, "Nie udało się usunąć wpisu z dziennika")
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"message": "Wpis został usunięty z dziennika"})
+}

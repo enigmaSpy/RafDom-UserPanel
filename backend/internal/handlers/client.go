@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -170,10 +171,33 @@ func UpdateClient(c *gin.Context){
 }
 
 func DeleteClient(c *gin.Context){
-	role, _ := c.Get("role")
-	if role != "admin"{
-		utils.RespondWithError(c, http.StatusUnauthorized, "Brak dostępu")
+	clientUUID, ok := utils.ParseUUIDParam(c, "id")
+	if !ok{
+		return
+	}
+	var user models.User
+	if err := db.DB.First(&user, "id = ?", clientUUID).Error; err !=nil{
+		utils.RespondWithError(c, http.StatusNotFound, "Użytkownik nie istnieje")
 		return
 	}
 
+	db.DB.Unscoped().Where("sender_id = ? OR receiver_id = ?", clientUUID, clientUUID).Delete(&models.Message{})
+    
+	var renovationIDs []uuid.UUID
+	db.DB.Model(&models.Renovation{}).Where("client_id = ?", clientUUID).Pluck("id", &renovationIDs)
+	
+	if len(renovationIDs) > 0{
+		db.DB.Unscoped().Where("renovation_id IN ?", renovationIDs).Delete(&models.LaborTask{})
+        db.DB.Unscoped().Where("renovation_id IN ?", renovationIDs).Delete(&models.Transaction{})
+        db.DB.Unscoped().Where("renovation_id IN ?", renovationIDs).Delete(&models.ProgressUpdate{})
+        db.DB.Unscoped().Where("renovation_id IN ?", renovationIDs).Delete(&models.Message{})
+        
+        db.DB.Unscoped().Where("client_id = ?", clientUUID).Delete(&models.Renovation{})
+	}
+
+	if err := db.DB.Unscoped().Delete(&user).Error; err != nil {
+        utils.RespondWithError(c, http.StatusInternalServerError, "Nie udało się usunąć użytkownika")
+        return
+    }
+	c.JSON(http.StatusOK, gin.H{"message": "użytkownik pomyślnie usunięty"})
 }
