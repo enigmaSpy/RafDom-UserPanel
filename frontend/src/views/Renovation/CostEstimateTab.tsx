@@ -19,9 +19,9 @@ export const CostEstimateTab = ({ renovationId }: { renovationId: string }) => {
     useEffect(() => {
         const fetchTasks = async () => {
             try {
-                const response = await apiClient.get(`/api/renovations/${renovationId}`);
+                const response = await apiClient.get(`/api/renovations/${renovationId}/tasks`);
                 
-                const rawTasks = response.data?.data?.LaborTasks || [];
+                const rawTasks = response.data?.data || [];
                 const formattedTasks = rawTasks.map((t: any) => ({
                     id: t.ID,
                     label: t.Label,
@@ -53,7 +53,6 @@ export const CostEstimateTab = ({ renovationId }: { renovationId: string }) => {
         <div className="bg-bg-surface border border-bg-border rounded-card overflow-hidden">
             <div className="p-6 border-b border-bg-border flex justify-between items-center">
                 <h2 className="text-xl font-bold text-text-main">Zestawienie Prac (Labor Tasks)</h2>
-                {/* Przycisk do dodawania nowego zadania (przygotowany pod przyszłą funkcję) */}
                 <button className="bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded text-sm font-bold transition-colors">
                     + Dodaj zadanie
                 </button>

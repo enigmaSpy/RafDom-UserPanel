@@ -2,12 +2,13 @@ import { useState, useEffect } from 'react';
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router';
 import { apiClient } from '../../../services/api';
 import { CostEstimateTab } from '../../../views/Renovation/CostEstimateTab';
+import { ChatTab } from '../../../views/Renovation/ChatTab';
 export const Route = createFileRoute('/admin/renovations/$id')({
   component: RenovationDetailsPage,
 });
 
-// --- 1. DTO FRONTENDOWE (UI) ---
 interface ClientInfo {
+  id: string;
   name: string;
   email: string;
   phone: string;
@@ -33,25 +34,6 @@ interface RenovationDetailUI {
   finances: FinancialSummary;
 }
 
-// --- 2. DTO BACKENDOWE (Lustrzane odbicie Twojego surowego JSON-a) ---
-interface BackendSummary {
-  ID: string;
-  Name: string;
-  Description: string;
-  Status: string;
-  CreatedAt: string;
-  Client: {
-    Name: string;
-    Surname: string;
-    Email: string;
-    Phone: string;
-    Address: string;
-    City: string;
-  };
-  LaborTasks: Array<{ Amount: number }> | null; // Kluczowe do obliczenia budżetu
-}
-
-// --- GŁÓWNY KOMPONENT ---
 function RenovationDetailsPage() {
   const { id } = Route.useParams();
   const navigate = useNavigate();
@@ -64,8 +46,6 @@ function RenovationDetailsPage() {
   useEffect(() => {
   const fetchDetails = async () => {
     try {
-      // DEEP DIVE: Uruchamiamy oba zapytania RÓWNOLEGLE. 
-      // Destrukturyzacja tablicy przypisuje wyniki do dwóch zmiennych.
       const [renovationRes, summaryRes] = await Promise.all([
         apiClient.get(`/api/renovations/${id}`),
         apiClient.get(`/api/renovations/${id}/summary`)
@@ -83,6 +63,7 @@ function RenovationDetailsPage() {
         status: rawData.Status,
         created_at: rawData.CreatedAt ? rawData.CreatedAt.split('T')[0] : '-',
         client: {
+          id: rawData.Client?.ID || '',
           name: `${rawData.Client?.Name || ''} ${rawData.Client?.Surname || ''}`.trim(),
           email: rawData.Client?.Email || '-',
           phone: rawData.Client?.Phone || '-',
@@ -238,7 +219,6 @@ function RenovationDetailsPage() {
                   <div className="font-medium text-red-400">{formatPLN(data.finances.labor_balance)}</div>
                 </div>
 
-                {/* Materiały */}
                 <div className="flex justify-between items-center py-2 pt-4">
                   <div className="text-text-muted">Material Deposits</div>
                   <div className="font-medium">{formatPLN(data.finances.material_deposits)}</div>
@@ -248,7 +228,6 @@ function RenovationDetailsPage() {
                   <div className="font-medium text-red-400">-{formatPLN(data.finances.material_expenses)}</div>
                 </div>
 
-                {/* Saldo całkowite */}
                 <div className="flex justify-between items-center p-3 bg-bg-base rounded font-bold mt-4">
                   <div>Deposit Balance</div>
                   <div className="text-emerald-400">{formatPLN(data.finances.deposit_balance)}</div>
@@ -264,7 +243,7 @@ function RenovationDetailsPage() {
       {activeTab === 'estimate' && <CostEstimateTab renovationId={id} />}
       {activeTab === 'transactions' && <div className="p-6 bg-bg-surface rounded border border-bg-border">Sekcja Transakcji w budowie...</div>}
       {activeTab === 'progress' && <div className="p-6 bg-bg-surface rounded border border-bg-border">Sekcja Dziennika Prac w budowie...</div>}
-      {activeTab === 'chat' && <div className="p-6 bg-bg-surface rounded border border-bg-border">Wtyczka Komunikatora w budowie...</div>}
+      {activeTab === 'chat' && <ChatTab renovationId={id} />}
 
     </div>
   );
