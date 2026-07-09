@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"net/rpc"
 	"time"
@@ -14,12 +15,13 @@ import (
 	"github.com/google/uuid"
 )
 
-//*------Renovation-------
+// *------Renovation-------
 type CreateRenovationInput struct {
 	ClientID    string `json:"client_id" binding:"required"`
 	Name        string `json:"name" binding:"required"`
 	Description string `json:"description"`
 }
+
 // CreateRenovation godoc
 // @Summary Tworzy nowy projekt remontowy
 // @Description Tworzy nowy remont i przypisuje go do istniejącego klienta. Wymaga roli admin.
@@ -32,6 +34,7 @@ type CreateRenovationInput struct {
 // @Router /api/admin/renovations [post]
 func CreateRenovation(c *gin.Context) {
 	role, _ := c.Get("role")
+	adminID, _ := c.Get("userID")
 	if role != "admin" {
 		utils.RespondWithError(c, http.StatusForbidden, "Brak uprawnień")
 		return
@@ -48,6 +51,17 @@ func CreateRenovation(c *gin.Context) {
 		return
 	}
 
+	 adminUUID := adminID.(uuid.UUID)
+    
+    log.Printf("DEBUG: AdminID from token: %s", adminUUID)
+    
+    var adminCheck models.User
+    if err := db.DB.Where("id = ?", adminUUID).First(&adminCheck).Error; err != nil {
+        log.Printf("DEBUG: Admin not found in DB: %v", err)
+        utils.RespondWithError(c, http.StatusInternalServerError, "Admin nie istnieje w bazie")
+        return
+    }
+
 	var count int64
 	db.DB.Model(&models.User{}).Where("id = ? AND role = ?", clientUUID, "client").Count(&count)
 	if count == 0 {
@@ -56,6 +70,7 @@ func CreateRenovation(c *gin.Context) {
 	}
 	newRenovation := models.Renovation{
 		ClientID:    clientUUID,
+		AdminID:     adminID.(uuid.UUID),
 		Name:        input.Name,
 		Description: input.Description,
 	}
@@ -102,68 +117,69 @@ func GetRenovationDetails(c *gin.Context) {
 	c.JSON(http.StatusOK, renovation)
 }
 
-func GetListRenovation(c *gin.Context){
-	role, _:= c.Get("role")
-	userID, exists:= c.Get("userID")
-	if !exists{
+func GetListRenovation(c *gin.Context) {
+	role, _ := c.Get("role")
+	userID, exists := c.Get("userID")
+	if !exists {
 		utils.RespondWithError(c, http.StatusUnauthorized, "Brak id")
 		return
 	}
-	
+
 	userUUID := userID.(uuid.UUID)
 
 	query := db.DB.Preload("Client").Preload("LaborTasks")
-	if role == "client"{
+	if role == "client" {
 		query = query.Where("client_id = ?", userUUID)
 	}
 	var renovations []models.Renovation
-	if err := query.Find(&renovations).Error; err !=nil{
+	if err := query.Find(&renovations).Error; err != nil {
 		utils.RespondWithError(c, http.StatusInternalServerError, "Błąd przy pobieraniu prac")
-		return 
+		return
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"data": renovations,
 	})
 }
 
-type UpdateRenovationInput struct{
-	Name string `json:"name"`
+type UpdateRenovationInput struct {
+	Name        string `json:"name"`
 	Description string `json:"description"`
-	Status string `json:"status"`
-	ClientID string `json:"client_id"`
+	Status      string `json:"status"`
+	ClientID    string `json:"client_id"`
 }
-func UpdateRenovation(c *gin.Context){
+
+func UpdateRenovation(c *gin.Context) {
 	renovationUUID, ok := utils.ParseUUIDParam(c, "id")
-	if !ok{
+	if !ok {
 		return
 	}
 	var input UpdateRenovationInput
-	if err := c.ShouldBindJSON(&input);err!=nil{
+	if err := c.ShouldBindJSON(&input); err != nil {
 		utils.RespondWithError(c, http.StatusBadRequest, "Nieprawidłowe dane")
 		return
 	}
 	var renovation models.Renovation
-	if err:= db.DB.First(&renovation, "id = ?", renovationUUID).Error; err != nil{
-		utils.RespondWithError(c, http.StatusNotFound,"Projekt nie istnieje")
+	if err := db.DB.First(&renovation, "id = ?", renovationUUID).Error; err != nil {
+		utils.RespondWithError(c, http.StatusNotFound, "Projekt nie istnieje")
 		return
 	}
-	if input.ClientID != ""{
-		clientUUID, err:=uuid.Parse(input.ClientID)
-		if err == nil{
-			renovation.ClientID=clientUUID
+	if input.ClientID != "" {
+		clientUUID, err := uuid.Parse(input.ClientID)
+		if err == nil {
+			renovation.ClientID = clientUUID
 		}
 	}
 	db.DB.Model(&renovation).Updates(models.Renovation{
-		Name: input.Name,
-		Status: input.Status,
+		Name:        input.Name,
+		Status:      input.Status,
 		Description: input.Description,
 	})
 	c.JSON(http.StatusOK, gin.H{"data": renovation})
 }
 
-func DeleteRenovation(c *gin.Context){
+func DeleteRenovation(c *gin.Context) {
 	renovationUUID, ok := utils.ParseUUIDParam(c, "id")
-	if !ok{
+	if !ok {
 		return
 	}
 	db.DB.Where("renovation_id = ?", renovationUUID).Delete(&models.LaborTask{})
@@ -171,13 +187,14 @@ func DeleteRenovation(c *gin.Context){
 	db.DB.Where("renovation_id = ?", renovationUUID).Delete(&models.ProgressUpdate{})
 	db.DB.Where("renovation_id = ?", renovationUUID).Delete(&models.Message{})
 
-	if err:= db.DB.Unscoped().Delete(&models.Renovation{}, "id=?",renovationUUID).Error; err!=nil{
+	if err := db.DB.Unscoped().Delete(&models.Renovation{}, "id=?", renovationUUID).Error; err != nil {
 		utils.RespondWithError(c, http.StatusInternalServerError, "Nie udało się usunąć projektu")
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message":"Remont został pomyślnie usunięty"})
+	c.JSON(http.StatusOK, gin.H{"message": "Remont został pomyślnie usunięty"})
 }
-//*----------TaskLabor---------------------POST
+
+// *----------TaskLabor---------------------POST
 type AddLaborTaskInput struct {
 	Label     string  `json:"label" binding:"required"`
 	UnitPrice float64 `json:"unit_price" binding:"required"`
@@ -185,6 +202,7 @@ type AddLaborTaskInput struct {
 	Quantity  float64 `json:"quantity" binding:"required"`
 	Note      string  `json:"note"`
 }
+
 // AddLaborTask godoc
 // @Summary Dodaje usługę roboczą do kosztorysu
 // @Description Dodaje pozycję roboczą (praca) do istniejącego projektu remontowego. Wymaga roli admin.
@@ -230,6 +248,7 @@ func AddLaborTask(c *gin.Context) {
 		Quantity:     input.Quantity,
 		Amount:       totalAmount,
 		Note:         input.Note,
+		Date: time.Now(),
 	}
 	if err := db.DB.Create(&newTask).Error; err != nil {
 		utils.RespondWithError(c, http.StatusInternalServerError, "Nie udało się powiązać z projektem")
@@ -244,45 +263,104 @@ func AddLaborTask(c *gin.Context) {
 	})
 }
 
-type UpdateLaborTaskInput struct{
-	Label string `json:"label"`
-	Status string `json:"status"`
+type UpdateLaborTaskInput struct {
+	Label     string   `json:"label"`
+	Status    string   `json:"status"`
 	UnitPrice *float64 `json:"unit_price"`
-	Quantity *float64 `json:"quantity"`
-	Unit string `json:"unit"`
-	Note string `json:"note"`
+	Quantity  *float64 `json:"quantity"`
+	Unit      string   `json:"unit"`
+	Note      string   `json:"note"`
 }
-func UpdateLoborTask(c *gin.Context){
+
+func UpdateLoborTask(c *gin.Context) {
 	taskID, ok := utils.ParseUUIDParam(c, "id")
-	if !ok{
+	if !ok {
 		return
 	}
 	var input UpdateLaborTaskInput
-	if err := c.ShouldBindJSON(&input); err !=nil{
+	if err := c.ShouldBindJSON(&input); err != nil {
 		utils.RespondWithError(c, http.StatusBadRequest, "Nieprawidłowe dane")
 		return
 	}
 	var task models.LaborTask
-	if err := db.DB.First(&task, "id = ?", taskID).Error; err !=nil{
+	if err := db.DB.First(&task, "id = ?", taskID).Error; err != nil {
 		utils.RespondWithError(c, http.StatusNotFound, "Zadanie nie istnieje")
 		return
 	}
 	db.DB.Model(&task).Updates(input)
-	db.DB.Model(&task).Update("amount", task.UnitPrice * *input.Quantity)
-	c.JSON(http.StatusOK, gin.H{"message":"Zadanie zaktualizowane"})
+	db.DB.Model(&task).Update("amount", task.UnitPrice**input.Quantity)
+	c.JSON(http.StatusOK, gin.H{"message": "Zadanie zaktualizowane"})
 }
-
-func DeleteLaborTask(c *gin.Context){
+func GetTaskLabor(c *gin.Context) {
+	authUserID, _ := c.Get("userID")
+	role, _ := c.Get("role")
 	taskID, ok := utils.ParseUUIDParam(c, "id")
-	if !ok{
+	if !ok {
 		return
 	}
-	if err := db.DB.Unscoped().Delete(&models.LaborTask{}, "id = ?", taskID).Error; err !=nil{
+
+	var task models.LaborTask
+
+	if err := db.DB.Preload("Renovation").Where("id = ?", taskID).First(&task).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Nie znaleziono zadania lub brak dostępu"})
+		return
+	}
+	if role == "client" {
+		if task.Renovation.ClientID != authUserID {
+			c.JSON(http.StatusNotFound, gin.H{"error": "Nie znaleziono zadania lub brak dostępu"})
+			return
+		}
+	}
+
+	task.Renovation = models.Renovation{}
+
+	c.JSON(http.StatusOK, task)
+}
+func GetTaskLaborList(c *gin.Context) {
+	authUserID, _ := c.Get("userID")
+	role, _ := c.Get("role")
+
+	renovationID := c.Query("renovation_id")
+
+	var tasks []models.LaborTask
+	
+	query := db.DB.Model(&models.LaborTask{}).Joins("JOIN renovations ON renovations.id = labor_tasks.renovation_id")
+
+	if role == "client" {
+		query = query.Where("renovations.client_id = ?", authUserID)
+
+		if renovationID != "" {
+			query = query.Where("labor_tasks.renovation_id = ?", renovationID)
+		}
+	} else {
+		
+		if renovationID != "" {
+			query = query.Where("labor_tasks.renovation_id = ?", renovationID)
+		}
+	}
+	if err := query.Order("labor_tasks.date DESC").Find(&tasks).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Błąd wewnętrzny bazy danych " +err.Error()})
+		return
+	}
+
+	if tasks == nil {
+		tasks = []models.LaborTask{}
+	}
+
+	c.JSON(http.StatusOK, gin.H{"data": tasks})
+}
+func DeleteLaborTask(c *gin.Context) {
+	taskID, ok := utils.ParseUUIDParam(c, "id")
+	if !ok {
+		return
+	}
+	if err := db.DB.Unscoped().Delete(&models.LaborTask{}, "id = ?", taskID).Error; err != nil {
 		utils.RespondWithError(c, http.StatusInternalServerError, "Nie udało się usunąć zadania")
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message":"Zadanie zostało usunięte"})
+	c.JSON(http.StatusOK, gin.H{"message": "Zadanie zostało usunięte"})
 }
+
 type RenovationSummary struct {
 	RenovationID     uuid.UUID `json:"renovation_id"`
 	Status           string    `json:"status"`
@@ -293,6 +371,7 @@ type RenovationSummary struct {
 	MaterialExpenses float64   `json:"material_expenses"`
 	MaterialBalance  float64   `json:"material_balance"`
 }
+
 // GetRenovationSummary godoc
 // @Summary Zwraca podsumowanie finansowe remontu
 // @Description Agreguje koszty pracy, płatności, wpłaty na materiały i wydatki. Zwraca salda. Dostęp dla admina lub przypisanego klienta.
@@ -356,12 +435,13 @@ func GetRenovationSummary(c *gin.Context) {
 	c.JSON(http.StatusOK, summary)
 }
 
-//*---Transaction----
+// *---Transaction----
 type AddTransactionInput struct {
 	Type   string  `json:"type" binding:"required"`
 	Amount float64 `json:"amount" binding:"required"`
 	Note   string  `json:"note"`
 }
+
 // AddTransaction godoc
 // @Summary Rejestruje transakcję finansową
 // @Description Dodaje wpłatę/zakup materiałów lub płatność za pracę do projektu. Wymaga roli admin. Dozwolone typy: material_deposit, material_expense, labour_payment.
@@ -419,45 +499,47 @@ func AddTransaction(c *gin.Context) {
 		"transaction_id": newTransaction.ID,
 	})
 }
-type UpdateTransactionInput struct{
-	Type string `json:"type"`
+
+type UpdateTransactionInput struct {
+	Type   string   `json:"type"`
 	Amount *float64 `json:"amount"`
-	Note string `json:"note"`
+	Note   string   `json:"note"`
 }
-func GetTransactionsList(c *gin.Context){
-	renovationID, ok:= utils.ParseUUIDParam(c, "id")
-	if !ok{
+
+func GetTransactionsList(c *gin.Context) {
+	renovationID, ok := utils.ParseUUIDParam(c, "id")
+	if !ok {
 		return
 	}
 	var transactions []models.Transaction
-	if err := db.DB.Where("renovation_id = ?", renovationID).Order("date desc").Find(&transactions).Error; err !=nil{
+	if err := db.DB.Where("renovation_id = ?", renovationID).Order("date desc").Find(&transactions).Error; err != nil {
 		utils.RespondWithError(c, http.StatusInternalServerError, "Błąd pobierania transakcji")
 		return
 	}
 	c.JSON(http.StatusOK, transactions)
 }
-func UpdateTransaction(c *gin.Context){
+func UpdateTransaction(c *gin.Context) {
 	transactionID, ok := utils.ParseUUIDParam(c, "id")
-	if !ok{
+	if !ok {
 		return
 	}
 	var input UpdateTransactionInput
-	if err := c.ShouldBindJSON(&input);err!=nil{
+	if err := c.ShouldBindJSON(&input); err != nil {
 		utils.RespondWithError(c, http.StatusBadRequest, "Nieprawidłowe formatowanie JSON")
 		return
 	}
 	var transaction models.Transaction
-	if err:= db.DB.First(&transaction, "id = ?", transactionID).Error; err !=nil{
+	if err := db.DB.First(&transaction, "id = ?", transactionID).Error; err != nil {
 		utils.RespondWithError(c, http.StatusNotFound, "Transakcja nie istnieje")
 		return
 	}
 	db.DB.Model(&transaction).Updates(input)
 	c.JSON(http.StatusOK, gin.H{"message": "Zaktualizowano transakcję", "data": transaction})
 }
-func DeleteTransaction(c *gin.Context){
-	transactionID, ok := utils.ParseUUIDParam(c,"id")
-	if !ok{
-		return 
+func DeleteTransaction(c *gin.Context) {
+	transactionID, ok := utils.ParseUUIDParam(c, "id")
+	if !ok {
+		return
 	}
 	if err := db.DB.Unscoped().Delete(&models.Transaction{}, "id = ?", transactionID).Error; err != nil {
 		utils.RespondWithError(c, http.StatusInternalServerError, "Nie udało się anulować transakcji")
@@ -465,13 +547,15 @@ func DeleteTransaction(c *gin.Context){
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Transakcja została trwale usunięta"})
 }
-//*---ProgressUpdate
+
+// *---ProgressUpdate
 type AddProgressUpdateInput struct {
 	Title       string   `json:"title" binding:"required"`
 	Description string   `json:"description"`
 	Photos      []string `json:"photos"`
 	LaborTaskID string   `json:"labor_task_id"`
 }
+
 // AddProgressUpdate godoc
 // @Summary Dodaje wpis w dzienniku prac
 // @Description Rejestruje aktualizację postępu prac w projekcie. Opcjonalnie można powiązać z konkretnym zadaniem roboczym. Wymaga roli admin.
@@ -522,61 +606,62 @@ func AddProgressUpdate(c *gin.Context) {
 		return
 	}
 
-	go func(title string){
-		client, err:=rpc.Dial("tcp", "127.0.0.1:8082")
-		if err == nil{
+	go func(title string) {
+		client, err := rpc.Dial("tcp", "127.0.0.1:8082")
+		if err == nil {
 			defer client.Close()
 
-			type NotificationEvent struct{
+			type NotificationEvent struct {
 				Message string
 			}
-			args := &NotificationEvent{Message: "Nowy postęp prac: "+title}
+			args := &NotificationEvent{Message: "Nowy postęp prac: " + title}
 			var reply string
 
-			if err := client.Call("Notifier.SendAlert", args, &reply); err==nil{
+			if err := client.Call("Notifier.SendAlert", args, &reply); err == nil {
 				fmt.Println("Odpowiedź od RCP: ", reply)
 			}
-		}else{
+		} else {
 			fmt.Println("Mikroserwis powiadomień niedostępny")
 		}
 	}(input.Title)
-
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message":     "Dodano wpis w dzienniku prac",
 		"progress_id": newProgress.ID,
 	})
 }
-type UpdateProgressInput struct{
+
+type UpdateProgressInput struct {
 	Title       string   `json:"title"`
 	Description string   `json:"description"`
 	Photos      []string `json:"photos"`
 }
-func GetProgressUpdates(c *gin.Context){
+
+func GetProgressUpdates(c *gin.Context) {
 	renovationID, ok := utils.ParseUUIDParam(c, "id")
-	if !ok{
+	if !ok {
 		return
 	}
 	var updates []models.ProgressUpdate
-	if err := db.DB.Where("id_renovation = ?", renovationID).Order("date desc").Find(&updates).Error; err!=nil{
+	if err := db.DB.Where("id_renovation = ?", renovationID).Order("date desc").Find(&updates).Error; err != nil {
 		utils.RespondWithError(c, http.StatusInternalServerError, "Błąd pobierania dziennika prac")
 		return
 	}
 	c.JSON(http.StatusOK, updates)
 }
-func UpdateProgressUpdate(c *gin.Context){
+func UpdateProgressUpdate(c *gin.Context) {
 	progressID, ok := utils.ParseUUIDParam(c, "id")
-	if !ok{
+	if !ok {
 		return
 	}
-	
+
 	var updateInput UpdateProgressInput
-	if err := c.ShouldBindJSON(&updateInput); err !=nil{
+	if err := c.ShouldBindJSON(&updateInput); err != nil {
 		utils.RespondWithError(c, http.StatusBadRequest, "Nieprawidłowe formatowanie JSON")
 		return
 	}
 	var progress models.ProgressUpdate
-	if err := db.DB.First(&progress, "id = ?", progressID).Error; err != nil{
+	if err := db.DB.First(&progress, "id = ?", progressID).Error; err != nil {
 		utils.RespondWithError(c, http.StatusNotFound, "Wpis nie istnieje")
 		return
 	}
@@ -584,12 +669,12 @@ func UpdateProgressUpdate(c *gin.Context){
 	c.JSON(http.StatusOK, gin.H{"message": "Zaktualizowany wpis", "data": progress})
 }
 
-func DeleteProgressUpdate(c *gin.Context){
+func DeleteProgressUpdate(c *gin.Context) {
 	progressID, ok := utils.ParseUUIDParam(c, "id")
-	if !ok{
-		return 
+	if !ok {
+		return
 	}
-	if err := db.DB.Unscoped().Delete(&models.ProgressUpdate{}, "id = ?", progressID).Error; err !=nil{
+	if err := db.DB.Unscoped().Delete(&models.ProgressUpdate{}, "id = ?", progressID).Error; err != nil {
 		utils.RespondWithError(c, http.StatusInternalServerError, "Nie udało się usunąć wpisu z dziennika")
 		return
 	}

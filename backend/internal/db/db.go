@@ -46,3 +46,17 @@ func Connect(){
 	fmt.Println("Migracja zakończona sukcesem")
 	DB = database
 }
+func Migrate() {
+	DB.AutoMigrate(&models.Renovation{}, &models.User{}, /* ... */)
+	
+	var renovations []models.Renovation
+	DB.Where("admin_id IS NULL").Find(&renovations)
+	
+	var admin models.User
+	if err := DB.Where("role = ?", "admin").First(&admin).Error; err == nil {
+		for _, r := range renovations {
+			r.AdminID = admin.ID
+			DB.Save(&r)
+		}
+	}
+}

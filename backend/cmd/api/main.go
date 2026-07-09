@@ -32,6 +32,7 @@ func main() {
 
 
 	db.Connect()
+	db.Migrate()
 	seed.SeedAdmin(db.DB)
 
 	if err := os.MkdirAll("uploads", os.ModePerm); err!=nil{
@@ -54,9 +55,12 @@ func main() {
 	api := router.Group("/api")
 	{
 		api.POST("/login", handlers.Login)
-		api.GET("/ws/chat", handlers.ConnectChatWS)
+		api.GET("/ws/chat/:renovation_id", handlers.ConnectChatWS)
 		api.GET("/health", func(c *gin.Context) {
 			c.String(200, "El Psy Kongroo")
+		})
+		api.GET("/ws-test", func(c *gin.Context) {
+			c.String(200, "WebSocket endpoint działa (HTTP test)")
 		})
 	}
 	//*----Admin-Router
@@ -104,7 +108,8 @@ func main() {
 		authenticated.GET("/renovations/:id/summary", handlers.GetRenovationSummary)
 		authenticated.GET("/renovations/:id/messages", handlers.GetChatHistory)
 		authenticated.GET("/renovations/list", handlers.GetListRenovation)
-
+		authenticated.GET("/renovations/:id/tasks", handlers.GetTaskLaborList)
+		authenticated.GET("/renovations/:id/task", handlers.GetTaskLabor)
 		authenticated.GET("/clients/:id", handlers.GetClient)
 		authenticated.POST("/clients/:id", handlers.UpdateClient)
 		authenticated.GET("/renovations/:id/transactions", handlers.GetTransactionsList)

@@ -26,6 +26,8 @@ type Renovation struct {
 	ID          uuid.UUID `gorm:"type:uuid;default:gen_random_uuid();primaryKey"`
 	ClientID    uuid.UUID `gorm:"type:uuid;not null"`
 	Client      User      `gorm:"foreignKey:ClientID"`
+	AdminID     uuid.UUID `gorm:"type:uuid;not null"`
+	Admin       User      `gorm:"foreignKey:AdminID"`
 	Name        string    `gorm:"type:varchar(50);not null"`
 	Description string    `gorm:"type:text"`
 	Status      string    `gorm:"type:varchar(20);default:'estimation'"` // estimation, in_progress, completed
